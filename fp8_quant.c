@@ -156,8 +156,8 @@ void cvt_fp32_fp8_stochastic_scalar(const float *__restrict__ in, float *out,
     if (is_naninf == 0) {
       /* stochastic with 16 seeds */
       int seed_index = (gid / 16);
-      uint16_t rand = (uint16_t)(
-          rand_xoshiro128plus_scalar(sptr_[(seed_index % 16)]));
+      uint16_t rand =
+          (uint16_t)(rand_xoshiro128plus_scalar(sptr_[(seed_index % 16)]));
       /* apply stochastic rounding before truncation */
       h.u += can_round * is_normal * (rand & 0xFF);
       /* stochastic round:  denormals --> rne rounding */
@@ -192,6 +192,7 @@ void quantize_to_fp8(const float *__restrict__ in, float *__restrict__ out,
       for (int gid = start_index; gid < start_index + block_size; gid++) {
         maxval = (maxval < fabs(in[gid])) ? fabs(in[gid]) : maxval;
       }
+
       __float_t f;
 
       f.f = maxval;
@@ -221,4 +222,22 @@ void quantize_to_fp8(const float *__restrict__ in, float *__restrict__ out,
                                      size - vec_size, scale);
     }
   }
+}
+
+float fp8_scale(const float *__restrict__ in, const int size) {
+  float maxval = 0.0;
+
+#pragma omp parallel for reduction(max : maxval)
+  for (int gid = 0; gid < size; gid++) {
+    maxval = (maxval < fabs(in[gid])) ? fabs(in[gid]) : maxval;
+  }
+
+  __float_t f;
+
+  f.f = maxval;
+  f.u = (f.u & 0x7F800000);
+  f.f *= 2.0;
+  f.f /= 16384.0;
+
+  return f.f;
 }

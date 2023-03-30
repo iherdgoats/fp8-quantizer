@@ -23,7 +23,9 @@ int main() {
     out[i] = 0.0;
   }
 
-  quantize_to_fp8(in, out, 100, 1.0, false, 0);
+  float scale = fp8_scale(in, 100);
+
+  quantize_to_fp8(in, out, 100, scale, false, 0);
 
   for (int i = 0; i < 100; i++) {
     printf("%f = ", in[i]);

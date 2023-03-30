@@ -34,4 +34,12 @@ void quantize_to_fp8(const float *__restrict__ in, float *__restrict__ out,
                      const int size, const float in_scale, bool block_norm,
                      int block_size);
 
+/**
+ * @brief Computes the 8-bit floating point scale factor for the input array.
+ *
+ * @param in        Pointer to the input array of 32-bit floating point values.
+ * @param size      Number of elements in the input array.
+ */
+float fp8_scale(const float *__restrict__ in, const int size);
+
 #endif // FP8_QUANT_H
