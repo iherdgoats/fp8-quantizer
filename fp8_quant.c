@@ -12,21 +12,9 @@
  *----------------------------------------------------------------------------*/
 
 #include <immintrin.h>
-#include <math.h>
-#include <omp.h>
-#include <stdbool.h>
 
+#include "fp8_quant.h"
 #include "xoshiro128plus.h"
-
-typedef union {
-  uint16_t u;
-  __fp16 f;
-} __half_t;
-
-typedef union {
-  uint32_t u;
-  float f;
-} __float_t;
 
 static uint32_t s1_[4] = {1387366120, 2798441831, 888998500, 1099633400};
 static uint32_t s2_[4] = {2034269327, 2125325156, 1209715489, 1931656721};
@@ -186,19 +174,7 @@ void quantize_to_fp8(const float *__restrict__ in, float *__restrict__ out,
       if (start_index + block_size > size)
         block_size = (size - start_index);
 
-      float maxval = 0.0;
-
-#pragma omp parallel for reduction(max : maxval)
-      for (int gid = start_index; gid < start_index + block_size; gid++) {
-        maxval = (maxval < fabs(in[gid])) ? fabs(in[gid]) : maxval;
-      }
-
-      __float_t f;
-
-      f.f = maxval;
-      f.u = (f.u & 0x7F800000);
-      scale = 2.0 * f.f;
-      scale /= 16384.0;
+      float scale = fp8_scale(&in[start_index], block_size);
 
       if ((block_size % 32) == 0) {
         cvt_fp32_fp8_stochastic_intrinsic(&in[start_index], &out[start_index],
@@ -222,22 +198,4 @@ void quantize_to_fp8(const float *__restrict__ in, float *__restrict__ out,
                                      size - vec_size, scale);
     }
   }
-}
-
-float fp8_scale(const float *__restrict__ in, const int size) {
-  float maxval = 0.0;
-
-#pragma omp parallel for reduction(max : maxval)
-  for (int gid = 0; gid < size; gid++) {
-    maxval = (maxval < fabs(in[gid])) ? fabs(in[gid]) : maxval;
-  }
-
-  __float_t f;
-
-  f.f = maxval;
-  f.u = (f.u & 0x7F800000);
-  f.f *= 2.0;
-  f.f /= 16384.0;
-
-  return f.f;
 }
